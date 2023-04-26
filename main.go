@@ -42,6 +42,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("error getting houses. %v", err)
 		}
+		housesRequestTime := time.Since(start)
 
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
@@ -54,6 +55,7 @@ func main() {
 		response.Body.Close()
 
 		if houseAPIResponse.Ok {
+			log.Printf("houses request time %s", housesRequestTime.Round(time.Millisecond).String())
 			break
 		}
 	}
@@ -70,6 +72,7 @@ func main() {
 }
 
 func downloadImageAndSaveItToFile(wg *sync.WaitGroup, house House, client http.Client) {
+	start := time.Now()
 	imageRequest, err := http.NewRequest(http.MethodGet, house.PhotoURL, nil)
 	if err != nil {
 		log.Fatalf("error creating image request. %v", err)
@@ -80,7 +83,9 @@ func downloadImageAndSaveItToFile(wg *sync.WaitGroup, house House, client http.C
 		log.Fatalf("error getting image. %v", err)
 	}
 	defer response.Body.Close()
+	photoRequestTime := time.Since(start)
 
+	fileStart := time.Now()
 	ext := filepath.Ext(house.PhotoURL)
 	filePath := fmt.Sprintf("tmp/%d-%s%s", house.ID, house.Address, ext)
 	file, err := os.Create(filePath)
@@ -93,7 +98,9 @@ func downloadImageAndSaveItToFile(wg *sync.WaitGroup, house House, client http.C
 	if err != nil {
 		log.Fatalf("error copying image data to file. %v", err)
 	}
+	fileTime := time.Since(fileStart)
 
-	log.Printf("finished house %d", house.ID)
+	log.Printf("finished house %d. request time %s; file time %s", house.ID,
+		photoRequestTime.Round(time.Millisecond).String(), fileTime.Round(time.Millisecond).String())
 	wg.Done()
 }
