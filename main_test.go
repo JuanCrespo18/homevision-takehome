@@ -148,6 +148,7 @@ func TestDownloadPhotosFromHousesFailGettingImage(t *testing.T) {
 	}
 	err := DownloadPhotosFromHouses(context.Background(), &mockClient)
 	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), ErrDownloadingImageToFile)
 	assert.Contains(t, err.Error(), ErrGettingImage)
 }
 
@@ -171,6 +172,7 @@ func TestDownloadPhotosFromHousesFailGettingImageBadRequest(t *testing.T) {
 	}
 	err := DownloadPhotosFromHouses(context.Background(), &mockClient)
 	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), ErrDownloadingImageToFile)
 	assert.Contains(t, err.Error(), ErrGettingImage)
 	assert.Contains(t, err.Error(), strconv.Itoa(http.StatusBadRequest))
 }
@@ -221,6 +223,7 @@ func TestDownloadPhotosFromHousesFailGettingImageUnavailableAPI(t *testing.T) {
 	}
 	err := DownloadPhotosFromHouses(context.Background(), &mockClient)
 	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), ErrDownloadingImageToFile)
 	assert.Contains(t, err.Error(), ErrGettingImage)
 	assert.Contains(t, err.Error(), ErrAPIUnavailable)
 }
@@ -259,6 +262,7 @@ func TestDownloadPhotosFromHousesFailCreatingFile(t *testing.T) {
 	}
 	err := DownloadPhotosFromHouses(context.Background(), &mockClient)
 	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), ErrDownloadingImageToFile)
 	assert.Contains(t, err.Error(), ErrCreatingFile)
 }
 
@@ -292,6 +296,7 @@ func TestDownloadPhotosFromHousesFailCopyingImageToFile(t *testing.T) {
 	}
 	err := DownloadPhotosFromHouses(context.Background(), &mockClient)
 	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), ErrDownloadingImageToFile)
 	assert.Contains(t, err.Error(), ErrCopyingDataToFile)
 }
 
