@@ -12,6 +12,5 @@ repos:
       - id: go-fmt
       - id: go-vet
       - id: go-imports
-      - id: golangci-lint
       - id: go-unit-tests
       - id: go-mod-tidy

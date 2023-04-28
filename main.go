@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,8 +9,21 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
+)
+
+const (
+	ErrCreatingHousesRequest  = "error creating housesRequest"
+	ErrGettingHouses          = "error getting houses"
+	ErrReadingResponseBody    = "error reading response body"
+	ErrUnmarshallingResponse  = "error unmarshalling response body"
+	ErrDownloadingImageToFile = "error downloading image to file"
+	ErrGettingImage           = "error getting image"
+	ErrCreatingFile           = "error creating file for image"
+	ErrCopyingDataToFile      = "error copying image data to file"
+	ErrAPIUnavailable         = "API not available"
 )
 
 type House struct {
@@ -26,81 +40,116 @@ type HouseAPIResponse struct {
 	Message string  `json:"message,omitempty"`
 }
 
+type HttpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 func main() {
+	os.Mkdir("tmp", os.ModePerm)
 	start := time.Now()
 	client := http.Client{}
 
-	housesRequest, err := http.NewRequest(
-		http.MethodGet, "http://app-homevision-staging.herokuapp.com/api_project/houses?page=1&per_page=10", nil)
-	if err != nil {
-		log.Fatalf("error creating housesRequest. %v", err)
+	if err := DownloadPhotosFromHouses(context.Background(), &client); err != nil {
+		log.Fatal(err)
 	}
 
-	var houseAPIResponse HouseAPIResponse
-	for {
-		response, err := client.Do(housesRequest)
-		if err != nil {
-			log.Fatalf("error getting houses. %v", err)
-		}
-		housesRequestTime := time.Since(start)
-
-		body, err := io.ReadAll(response.Body)
-		if err != nil {
-			log.Fatalf("error reading response body. %v", err)
-		}
-
-		if err := json.Unmarshal(body, &houseAPIResponse); err != nil {
-			log.Fatalf("error unmarshalling response body. %v", err)
-		}
-		response.Body.Close()
-
-		if houseAPIResponse.Ok {
-			log.Printf("houses request time %s", housesRequestTime.Round(time.Millisecond).String())
-			break
-		}
-	}
-
-	wg := sync.WaitGroup{}
-	wg.Add(len(houseAPIResponse.Houses))
-
-	for _, house := range houseAPIResponse.Houses {
-		go downloadImageAndSaveItToFile(&wg, house, client)
-	}
-
-	wg.Wait()
 	log.Printf("finished in %s", time.Since(start).Round(time.Millisecond).String())
 }
 
-func downloadImageAndSaveItToFile(wg *sync.WaitGroup, house House, client http.Client) {
-	start := time.Now()
-	imageRequest, err := http.NewRequest(http.MethodGet, house.PhotoURL, nil)
+func DownloadPhotosFromHouses(ctx context.Context, client HttpClient) error {
+	housesRequest, err := http.NewRequestWithContext(ctx,
+		http.MethodGet, "http://app-homevision-staging.herokuapp.com/api_project/houses?page=1&per_page=10", nil)
 	if err != nil {
-		log.Fatalf("error creating image request. %v", err)
+		return fmt.Errorf("%s. %v", ErrCreatingHousesRequest, err)
 	}
 
-	response, err := client.Do(imageRequest)
+	var calls int
+	var response *http.Response
+	for {
+		response, err = client.Do(housesRequest)
+		if err != nil {
+			return fmt.Errorf("%s. %v", ErrGettingHouses, err)
+		}
+		if response.StatusCode == http.StatusOK {
+			break
+		}
+		if response.StatusCode >= 400 && response.StatusCode < 500 {
+			return fmt.Errorf("%s. Status Code: %d", ErrGettingHouses, response.StatusCode)
+		}
+		if calls > 3 {
+			return fmt.Errorf("%s. %s", ErrGettingHouses, ErrAPIUnavailable)
+		}
+		calls++
+		time.Sleep(time.Millisecond * 100)
+	}
+
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		log.Fatalf("error getting image. %v", err)
+		return fmt.Errorf("%s. %v", ErrReadingResponseBody, err)
+	}
+
+	var houseAPIResponse HouseAPIResponse
+	if err := json.Unmarshal(body, &houseAPIResponse); err != nil {
+		return fmt.Errorf("%s. %v", ErrUnmarshallingResponse, err)
 	}
 	defer response.Body.Close()
-	photoRequestTime := time.Since(start)
 
-	fileStart := time.Now()
+	errGroup := new(errgroup.Group)
+
+	for _, h := range houseAPIResponse.Houses {
+		house := h
+		errGroup.Go(func() error {
+			return downloadImageAndSaveItToFile(ctx, house, client)
+		})
+	}
+
+	if err := errGroup.Wait(); err != nil {
+		return fmt.Errorf("%s. %v", ErrDownloadingImageToFile, err)
+	}
+
+	return nil
+}
+
+func downloadImageAndSaveItToFile(ctx context.Context, house House, client HttpClient) error {
+	imageRequest, err := http.NewRequestWithContext(ctx, http.MethodGet, house.PhotoURL, nil)
+	if err != nil {
+		return fmt.Errorf("error creating image request. %v", err)
+	}
+
+	var calls int
+	var response *http.Response
+	for {
+		response, err = client.Do(imageRequest)
+		if err != nil {
+			return fmt.Errorf("%s. %v", ErrGettingImage, err)
+		}
+		defer response.Body.Close()
+
+		if response.StatusCode == http.StatusOK {
+			break
+		}
+		if response.StatusCode >= 400 && response.StatusCode < 500 {
+			return fmt.Errorf("%s. Status Code: %d", ErrGettingImage, response.StatusCode)
+		}
+		if calls > 3 {
+			return fmt.Errorf("%s. %s", ErrGettingImage, ErrAPIUnavailable)
+		}
+		calls++
+		time.Sleep(time.Millisecond * 100)
+	}
+
 	ext := filepath.Ext(house.PhotoURL)
 	filePath := fmt.Sprintf("tmp/%d-%s%s", house.ID, house.Address, ext)
 	file, err := os.Create(filePath)
 	if err != nil {
-		log.Fatalf("error creating file for image. %v", err)
+		return fmt.Errorf("%s. %v", ErrCreatingFile, err)
 	}
 	defer file.Close()
 
 	_, err = io.Copy(file, response.Body)
 	if err != nil {
-		log.Fatalf("error copying image data to file. %v", err)
+		return fmt.Errorf("%s. %v", ErrCopyingDataToFile, err)
 	}
-	fileTime := time.Since(fileStart)
 
-	log.Printf("finished house %d. request time %s; file time %s", house.ID,
-		photoRequestTime.Round(time.Millisecond).String(), fileTime.Round(time.Millisecond).String())
-	wg.Done()
+	return nil
 }
