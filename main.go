@@ -44,6 +44,8 @@ type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+// TODO: if needed, we could add parameters for running the script, that would allow, for example, to specify
+// of which and how many houses the user wants to download the images (e.g. parameters houses_count and offset)
 func main() {
 	start := time.Now()
 	client := http.Client{}
@@ -58,6 +60,8 @@ func main() {
 func DownloadPhotosFromHouses(ctx context.Context, client HttpClient) error {
 	os.Mkdir("tmp", os.ModePerm)
 
+	// TODO: here we could build the url using the parameters mentioned in the TODO of the main() function,
+	// in order to fetch the houses specified by the user.
 	housesRequest, err := http.NewRequestWithContext(ctx,
 		http.MethodGet, "http://app-homevision-staging.herokuapp.com/api_project/houses?page=1&per_page=10", nil)
 	if err != nil {
