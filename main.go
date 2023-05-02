@@ -45,7 +45,6 @@ type HttpClient interface {
 }
 
 func main() {
-	os.Mkdir("tmp", os.ModePerm)
 	start := time.Now()
 	client := http.Client{}
 
@@ -57,6 +56,8 @@ func main() {
 }
 
 func DownloadPhotosFromHouses(ctx context.Context, client HttpClient) error {
+	os.Mkdir("tmp", os.ModePerm)
+
 	housesRequest, err := http.NewRequestWithContext(ctx,
 		http.MethodGet, "http://app-homevision-staging.herokuapp.com/api_project/houses?page=1&per_page=10", nil)
 	if err != nil {
