@@ -76,6 +76,8 @@ func DownloadPhotosFromHouses(ctx context.Context, client HttpClient) error {
 		if response.StatusCode >= 400 && response.StatusCode < 500 {
 			return fmt.Errorf("%s. Status Code: %d", ErrGettingHouses, response.StatusCode)
 		}
+
+		// TODO: this is a very simple and rudimentary retry implementation, if needed it can be made better using back off for example.
 		if calls > 3 {
 			return fmt.Errorf("%s. %s", ErrGettingHouses, ErrAPIUnavailable)
 		}
@@ -131,6 +133,8 @@ func downloadImageAndSaveItToFile(ctx context.Context, house House, client HttpC
 		if response.StatusCode >= 400 && response.StatusCode < 500 {
 			return fmt.Errorf("%s. Status Code: %d", ErrGettingImage, response.StatusCode)
 		}
+
+		// TODO: this is a very simple and rudimentary retry implementation, if needed it can be made better using back off for example.
 		if calls > 3 {
 			return fmt.Errorf("%s. %s", ErrGettingImage, ErrAPIUnavailable)
 		}
