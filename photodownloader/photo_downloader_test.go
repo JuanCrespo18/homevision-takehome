@@ -1,4 +1,4 @@
-package main
+package photodownloader_test
 
 import (
 	"context"
@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/JuanCrespo18/homevision-takehome/photodownloader"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -39,9 +41,12 @@ func TestDownloadPhotosFromHousesOK(t *testing.T) {
 			},
 		},
 	}
-	err := DownloadPhotosFromHouses(context.Background(), &mockClient)
+	err := photodownloader.DownloadPhotosFromHouses(context.Background(), &mockClient)
 	assert.Nil(t, err)
 
+	// TODO: these assertions are made regarding the implementation of saving the files locally. If we were to change
+	// this for using and external Object Storage service, it would be necessary to change this section to test weather
+	// the Object Storage client interface receives the appropriate call, using mocks (like it was done with the http client).
 	dat, err := os.ReadFile("tmp/0-house-0.jpg")
 	assert.Nil(t, err)
 	assert.Equal(t, image, string(dat))
@@ -53,9 +58,9 @@ func TestDownloadPhotosFromHousesOK(t *testing.T) {
 
 func TestDownloadPhotosFromHousesFailCreatingRequest(t *testing.T) {
 	mockClient := mockClient{}
-	err := DownloadPhotosFromHouses(nil, &mockClient)
+	err := photodownloader.DownloadPhotosFromHouses(nil, &mockClient)
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), ErrCreatingHousesRequest)
+	assert.Contains(t, err.Error(), photodownloader.ErrCreatingHousesRequest)
 }
 
 func TestDownloadPhotosFromHousesFailGettingHouses(t *testing.T) {
@@ -63,9 +68,9 @@ func TestDownloadPhotosFromHousesFailGettingHouses(t *testing.T) {
 		err:        fmt.Errorf("mock error"),
 		failHouses: true,
 	}
-	err := DownloadPhotosFromHouses(context.Background(), &aMockClient)
+	err := photodownloader.DownloadPhotosFromHouses(context.Background(), &aMockClient)
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), ErrGettingHouses)
+	assert.Contains(t, err.Error(), photodownloader.ErrGettingHouses)
 	assert.Contains(t, err.Error(), "mock error")
 
 	aMockClient = mockClient{
@@ -75,9 +80,9 @@ func TestDownloadPhotosFromHousesFailGettingHouses(t *testing.T) {
 			},
 		},
 	}
-	err = DownloadPhotosFromHouses(context.Background(), &aMockClient)
+	err = photodownloader.DownloadPhotosFromHouses(context.Background(), &aMockClient)
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), ErrGettingHouses)
+	assert.Contains(t, err.Error(), photodownloader.ErrGettingHouses)
 	assert.Contains(t, err.Error(), strconv.Itoa(http.StatusBadRequest))
 
 	aMockClient = mockClient{
@@ -99,10 +104,10 @@ func TestDownloadPhotosFromHousesFailGettingHouses(t *testing.T) {
 			},
 		},
 	}
-	err = DownloadPhotosFromHouses(context.Background(), &aMockClient)
+	err = photodownloader.DownloadPhotosFromHouses(context.Background(), &aMockClient)
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), ErrGettingHouses)
-	assert.Contains(t, err.Error(), ErrAPIUnavailable)
+	assert.Contains(t, err.Error(), photodownloader.ErrGettingHouses)
+	assert.Contains(t, err.Error(), photodownloader.ErrAPIUnavailable)
 }
 
 func TestDownloadPhotosFromHousesFailReadingResponseBody(t *testing.T) {
@@ -114,9 +119,9 @@ func TestDownloadPhotosFromHousesFailReadingResponseBody(t *testing.T) {
 			},
 		},
 	}
-	err := DownloadPhotosFromHouses(context.Background(), &mockClient)
+	err := photodownloader.DownloadPhotosFromHouses(context.Background(), &mockClient)
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), ErrReadingResponseBody)
+	assert.Contains(t, err.Error(), photodownloader.ErrReadingResponseBody)
 	assert.Contains(t, err.Error(), "mock error")
 }
 
@@ -129,9 +134,9 @@ func TestDownloadPhotosFromHousesFailUnmarshallingBody(t *testing.T) {
 			},
 		},
 	}
-	err := DownloadPhotosFromHouses(context.Background(), &mockClient)
+	err := photodownloader.DownloadPhotosFromHouses(context.Background(), &mockClient)
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), ErrUnmarshallingResponse)
+	assert.Contains(t, err.Error(), photodownloader.ErrUnmarshallingResponse)
 }
 
 func TestDownloadPhotosFromHousesFailGettingImage(t *testing.T) {
@@ -146,10 +151,10 @@ func TestDownloadPhotosFromHousesFailGettingImage(t *testing.T) {
 		err:        fmt.Errorf("mock error"),
 		failPhotos: true,
 	}
-	err := DownloadPhotosFromHouses(context.Background(), &mockClient)
+	err := photodownloader.DownloadPhotosFromHouses(context.Background(), &mockClient)
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), ErrDownloadingImageToFile)
-	assert.Contains(t, err.Error(), ErrGettingImage)
+	assert.Contains(t, err.Error(), photodownloader.ErrDownloadingImageToFile)
+	assert.Contains(t, err.Error(), photodownloader.ErrGettingImage)
 }
 
 func TestDownloadPhotosFromHousesFailGettingImageBadRequest(t *testing.T) {
@@ -170,10 +175,10 @@ func TestDownloadPhotosFromHousesFailGettingImageBadRequest(t *testing.T) {
 			},
 		},
 	}
-	err := DownloadPhotosFromHouses(context.Background(), &mockClient)
+	err := photodownloader.DownloadPhotosFromHouses(context.Background(), &mockClient)
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), ErrDownloadingImageToFile)
-	assert.Contains(t, err.Error(), ErrGettingImage)
+	assert.Contains(t, err.Error(), photodownloader.ErrDownloadingImageToFile)
+	assert.Contains(t, err.Error(), photodownloader.ErrGettingImage)
 	assert.Contains(t, err.Error(), strconv.Itoa(http.StatusBadRequest))
 }
 
@@ -221,11 +226,11 @@ func TestDownloadPhotosFromHousesFailGettingImageUnavailableAPI(t *testing.T) {
 			},
 		},
 	}
-	err := DownloadPhotosFromHouses(context.Background(), &mockClient)
+	err := photodownloader.DownloadPhotosFromHouses(context.Background(), &mockClient)
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), ErrDownloadingImageToFile)
-	assert.Contains(t, err.Error(), ErrGettingImage)
-	assert.Contains(t, err.Error(), ErrAPIUnavailable)
+	assert.Contains(t, err.Error(), photodownloader.ErrDownloadingImageToFile)
+	assert.Contains(t, err.Error(), photodownloader.ErrGettingImage)
+	assert.Contains(t, err.Error(), photodownloader.ErrAPIUnavailable)
 }
 
 func TestDownloadPhotosFromHousesFailCreatingFile(t *testing.T) {
@@ -260,10 +265,10 @@ func TestDownloadPhotosFromHousesFailCreatingFile(t *testing.T) {
 			},
 		},
 	}
-	err := DownloadPhotosFromHouses(context.Background(), &mockClient)
+	err := photodownloader.DownloadPhotosFromHouses(context.Background(), &mockClient)
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), ErrDownloadingImageToFile)
-	assert.Contains(t, err.Error(), ErrCreatingFile)
+	assert.Contains(t, err.Error(), photodownloader.ErrDownloadingImageToFile)
+	assert.Contains(t, err.Error(), photodownloader.ErrCreatingFile)
 }
 
 func TestDownloadPhotosFromHousesFailCopyingImageToFile(t *testing.T) {
@@ -294,10 +299,10 @@ func TestDownloadPhotosFromHousesFailCopyingImageToFile(t *testing.T) {
 			},
 		},
 	}
-	err := DownloadPhotosFromHouses(context.Background(), &mockClient)
+	err := photodownloader.DownloadPhotosFromHouses(context.Background(), &mockClient)
 	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), ErrDownloadingImageToFile)
-	assert.Contains(t, err.Error(), ErrCopyingDataToFile)
+	assert.Contains(t, err.Error(), photodownloader.ErrDownloadingImageToFile)
+	assert.Contains(t, err.Error(), photodownloader.ErrCopyingDataToFile)
 }
 
 func setup() {
